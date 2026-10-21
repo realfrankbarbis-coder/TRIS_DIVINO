@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>TRIS DIVINO</title>
+    
+    <!-- WEB APP MANIFEST (For Desktop & Android) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#02000a">
+
+    <!-- APPLE iOS TAGS (For iPad/iPhone) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TRIS DIVINO">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            background: #02000a;
+            color: #fff;
+            font-family: "Georgia", "Times New Roman", serif;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* THE DIVINE PANELS */
+        .panel {
+            width: clamp(80px, 12vw, 150px);
+            height: 100%;
+            background: linear-gradient(180deg, rgba(10,10,30,0.95) 0%, rgba(2,0,10,0.98) 100%);
+            border-right: 1px solid rgba(251, 191, 36, 0.3);
+            border-left: 1px solid rgba(251, 191, 36, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 50px rgba(0,0,0,0.9);
+            z-index: 10;
+        }
+        
+        .panel-text {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-size: clamp(4rem, 12vh, 9rem);
+            letter-spacing: 25px;
+            font-weight: bold;
+            background: linear-gradient(180deg, #fbbf24, #d97706, #78350f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(251, 191, 36, 0.5);
+            margin-top: 20px;
+        }
+
+        /* CENTER GAME AREA */
+        .center-area {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #02000a 80%);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        /* CONTROLS */
+        .controls-left, .controls-right {
+            position: absolute;
+            bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 6px;
+            z-index: 20;
+        }
+        .controls-left { left: 20px; }
+        .controls-right { right: 20px; grid-template-columns: repeat(1, 50px); grid-template-rows: repeat(2, 50px); }
+
+        button {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(251, 191, 36, 0.4);
+            color: #fbbf24;
+            border-radius: 8px;
+            font-size: 1.3rem;
+            font-family: monospace;
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+        }
+        button:active { background: rgba(251, 191, 36, 0.9); color: #000; transform: scale(0.95); }
+        
+        .up { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .down { grid-column: 2; grid-row: 3; }
+        .right { grid-column: 3; grid-row: 2; }
+
+        /* OVERLAY */
+        .overlay {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; background: rgba(2,0,10,0.95);
+            z-index: 100; text-align: center; opacity: 0; pointer-events: none; transition: opacity 1s;
+        }
+        .overlay.show { opacity: 1; pointer-events: all; }
+        .overlay h1 { font-size: 3.5rem; color: #fbbf24; text-shadow: 0 0 40px #fbbf24; letter-spacing: 5px; margin-bottom: 20px;}
+        .overlay p { color: #94a3b8; font-size: 1.2rem; margin-bottom: 30px; }
+        .overlay button { padding: 15px 30px; border-radius: 999px; border: none; font-weight: bold; background: linear-gradient(90deg, #d97706, #fbbf24); color: #000; cursor: pointer; font-size: 1.2rem; }
+
+    </style>
+</head>
+<body>
+
+    <div class="panel">
+        <div class="panel-text">TRIS</div>
+    </div>
+
+    <div class="center-area" id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="controls-left">
+            <button class="up" id="panUp">▲</button>
+            <button class="left" id="panLeft">◀</button>
+            <button class="down" id="panDown">▼</button>
+            <button class="right" id="panRight">▶</button>
+        </div>
+
+        <div class="controls-right">
+            <button id="zoomIn">+</button>
+            <button id="zoomOut">-</button>
+        </div>
+
+        <div class="overlay" id="overlay">
+            <h1 id="overlayTitle"></h1>
+            <p>The universe has been conquered.</p>
+            <button id="overlayBtn">Rebuild Reality</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-text">DIVINO</div>
+    </div>
+
+    <script>
+        (() => {
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const overlay = document.getElementById('overlay');
+            const overlayTitle = document.getElementById('overlayTitle');
+
+            let board = new Uint8Array(531441);
+            let winL5 = new Uint8Array(59049);
+            let winL4 = new Uint8Array(6561);
+            let winL3 = new Uint8Array(729);
+            let winL2 = new Uint8Array(81);
+            let winL1 = new Uint8Array(9);
+            
+            let currentPlayer = 1; 
+            let gameOver = false;
+
+            const SIZE = 7290; 
+            const CELL_SIZE = 10;
+            
+            let cam = { x: SIZE/2, y: SIZE/2, scale: 0.1 };
+            let targetCam = { x: SIZE/2, y: SIZE/2, scale: 0.1 };
+
+            let fL1 = null, fL2 = null, fL3 = null, fL4 = null, fL5 = null;
+
+            const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+            function checkWin(arr, offset) {
+                for (let [a,b,c] of lines) {
+                    let va = arr[offset + a];
+                    if (va !== 0 && va === arr[offset + b] && va === arr[offset + c]) return va;
+                }
+                return 0;
+            }
+
+            function resize() {
+                const rect = canvas.parentElement.getBoundingClientRect();
+                canvas.width = rect.width * window.devicePixelRatio;
+                canvas.height = rect.height * window.devicePixelRatio;
+                targetCam.scale = Math.min(canvas.width, canvas.height) / SIZE;
+                cam.scale = targetCam.scale;
+            }
+            window.addEventListener('resize', resize);
+
+            function clampCamera() {
+                const minScale = Math.min(canvas.width, canvas.height) / SIZE;
+                const maxScale = Math.min(canvas.width, canvas.height) / 15;
+                targetCam.scale = Math.max(minScale, Math.min(maxScale, targetCam.scale));
+
+                const halfW = (canvas.width / 2) / targetCam.scale;
+                const halfH = (canvas.height / 2) / targetCam.scale;
+                
+                if (targetCam.scale <= minScale + 0.001) {
+                    targetCam.x = SIZE / 2;
+                    targetCam.y = SIZE / 2;
+                } else {
+                    targetCam.x = Math.max(halfW, Math.min(SIZE - halfW, targetCam.x));
+                    targetCam.y = Math.max(halfH, Math.min(SIZE - halfH, targetCam.y));
+                }
+            }
+
+            function isCellFull(L1,L2,L3,L4,L5) {
+                let base = L1*59049 + L2*6561 + L3*729 + L4*81 + L5*9;
+                for(let i=0; i<9; i++) if(board[base+i] === 0) return false;
+                return true;
+            }
+            function isSubMicroFull(L1,L2,L3,L4,L5) {
+                return winL5[L1*6561 + L2*729 + L3*81 + L4*9 + L5] !== 0 || isCellFull(L1,L2,L3,L4,L5);
+            }
+            function isMicroFull(L1,L2,L3,L4) {
+                for(let L5=0; L5<9; L5++) {
+                    if (!isSubMicroFull(L1,L2,L3,L4,L5)) return false;
+                }
+                return true;
+            }
+            function isSuperFull(L1,L2,L3) {
+                for(let L4=0; L4<9; L4++) {
+                    if (!isMicroFull(L1,L2,L3,L4)) return false;
+                }
+                return true;
+            }
+            function isGalacticFull(L1,L2) {
+                for(let L3=0; L3<9; L3++) {
+                    if (!isSuperFull(L1,L2,L3)) return false;
+                }
+                return true;
+            }
+            function isAbsoluteFull(L1) {
+                for(let L2=0; L2<9; L2++) {
+                    if (!isGalacticFull(L1,L2)) return false;
+                }
+                return true;
+            }
+
+            function updateForced() {
+                if (gameOver) return;
+
+                if (fL1 !== null && fL2 !== null && (winL2[fL1*9 + fL2] !== 0 || isGalacticFull(fL1, fL2))) { fL2=null; fL3=null; fL4=null; fL5=null; }
+                if (fL1 !== null && fL2 !== null && fL3 !== null && (winL3[fL1*81 + fL2*9 + fL3] !== 0 || isSuperFull(fL1, fL2, fL3))) { fL3=null; fL4=null; fL5=null; }
+                if (fL1 !== null && fL2 !== null && fL3 !== null && fL4 !== null && (winL4[fL1*729 + fL2*81 + fL3*9 + fL4] !== 0 || isMicroFull(fL1, fL2, fL3, fL4))) { fL4=null; fL5=null; }
+                if (fL1 !== null && fL2 !== null && fL3 !== null && fL4 !== null && fL5 !== null && (winL5[fL1*6561 + fL2*729 + fL3*81 + fL4*9 + fL5] !== 0 || isSubMicroFull(fL1, fL2, fL3, fL4, fL5))) { fL5=null; }
+            }
+
+            function applyMove(L1,L2,L3,L4,L5,L6, idx) {
+                board[idx] = currentPlayer;
+                let wonL5 = false, wonL4 = false, wonL3 = false, wonL2 = false, wonL1 = false;
+
+                let i5 = L1*6561 + L2*729 + L3*81 + L4*9 + L5;
+                let i4 = L1*729 + L2*81 + L3*9 + L4;
+                let i3 = L1*81 + L2*9 + L3;
+                let i2 = L1*9 + L2;
+
+                if (winL5[i5] === 0) {
+                    let w5 = checkWin(board, L1*59049 + L2*6561 + L3*729 + L4*81 + L5*9);
+                    if (w5) { winL5[i5] = w5; wonL5 = true; }
+                }
+                if (wonL5 && winL4[i4] === 0) {
+                    let w4 = checkWin(winL5, L1*6561 + L2*729 + L3*81 + L4*9);
+                    if (w4) { winL4[i4] = w4; wonL4 = true; }
+                }
+                if (wonL4 && winL3[i3] === 0) {
+                    let w3 = checkWin(winL4, L1*729 + L2*81 + L3*9);
+                    if (w3) { winL3[i3] = w3; wonL3 = true; }
+                }
+                if (wonL3 && winL2[i2] === 0) {
+                    let w2 = checkWin(winL3, L1*81 + L2*9);
+                    if (w2) { winL2[i2] = w2; wonL2 = true; }
+                }
+                if (wonL2 && winL1[L1] === 0) {
+                    let w1 = checkWin(winL2, L1*9);
+                    if (w1) { winL1[L1] = w1; wonL1 = true; }
+                }
+                if (wonL1 && checkWin(winL1, 0)) {
+                    gameOver = true;
+                    overlayTitle.textContent = (currentPlayer === 1 ? 'X' : 'O') + ' IS DIVINO';
+                    overlay.classList.add('show');
+                }
+
+                if (gameOver) return;
+
+                if (wonL1) { fL1 = L1; fL2 = L1; fL3 = L1; fL4 = L1; fL5 = L1; }
+                else if (wonL2) { fL1 = L2; fL2 = L2; fL3 = L2; fL4 = L2; fL5 = L2; }
+                else if (wonL3) { fL1 = L1; fL2 = L3; fL3 = L3; fL4 = L3; fL5 = L3; }
+                else if (wonL4) { fL1 = L1; fL2 = L2; fL3 = L4; fL4 = L4; fL5 = L4; }
+                else if (wonL5) { fL1 = L1; fL2 = L2; fL3 = L3; fL4 = L5; fL5 = L5; }
+                else { fL1 = L1; fL2 = L2; fL3 = L3; fL4 = L4; fL5 = L6; }
+
+                updateForced();
+                currentPlayer = currentPlayer === 1 ? 2 : 1;
+            }
+
+            function handleTap(e) {
+                if (gameOver) return;
+                e.preventDefault();
+                
+                const rect = canvas.getBoundingClientRect();
+                let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                let canvasX = (clientX - rect.left) * (canvas.width / rect.width);
+                let canvasY = (clientY - rect.top) * (canvas.height / rect.height);
+
+                let lx = (canvasX - canvas.width / 2) / cam.scale + cam.x;
+                let ly = (canvasY - canvas.height / 2) / cam.scale + cam.y;
+
+                if (lx < 0 || lx >= SIZE || ly < 0 || ly >= SIZE) return;
+
+                let col = Math.floor(lx / CELL_SIZE);
+                let row = Math.floor(ly / CELL_SIZE);
+
+                let r1 = Math.floor(row / 243), c1 = Math.floor(col / 243);
+                let r2 = Math.floor((row % 243) / 81), c2 = Math.floor((col % 243) / 81);
+                let r3 = Math.floor((row % 81) / 27), c3 = Math.floor((col % 81) / 27);
+                let r4 = Math.floor((row % 27) / 9), c4 = Math.floor((col % 27) / 9);
+                let r5 = Math.floor((row % 9) / 3), c5 = Math.floor((col % 9) / 3);
+                let r6 = row % 3, c6 = col % 3;
+
+                let L1 = (2 - r1) * 3 + c1;
+                let L2 = (2 - r2) * 3 + c2;
+                let L3 = (2 - r3) * 3 + c3;
+                let L4 = (2 - r4) * 3 + c4;
+                let L5 = (2 - r5) * 3 + c5;
+                let L6 = (2 - r6) * 3 + c6;
+
+                if (fL1 !== null && L1 !== fL1) return;
+                if (fL2 !== null && L2 !== fL2) return;
+                if (fL3 !== null && L3 !== fL3) return;
+                if (fL4 !== null && L4 !== fL4) return;
+                if (fL5 !== null && L5 !== fL5) return;
+                
+                let i5 = L1*6561 + L2*729 + L3*81 + L4*9 + L5;
+                let i4 = L1*729 + L2*81 + L3*9 + L4;
+                let i3 = L1*81 + L2*9 + L3;
+                let i2 = L1*9 + L2;
+
+                if (winL5[i5] !== 0 || winL4[i4] !== 0 || winL3[i3] !== 0 || winL2[i2] !== 0 || winL1[L1] !== 0) return;
+
+                let idx = L1*59049 + L2*6561 + L3*729 + L4*81 + L5*9 + L6;
+                if (board[idx] !== 0) return;
+
+                applyMove(L1, L2, L3, L4, L5, L6, idx);
+            }
+
+            canvas.addEventListener('mousedown', handleTap);
+            canvas.addEventListener('touchstart', handleTap, { passive: false });
+
+            function render() {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                cam.x += (targetCam.x - cam.x) * 0.15;
+                cam.y += (targetCam.y - cam.y) * 0.15;
+                cam.scale += (targetCam.scale - cam.scale) * 0.15;
+
+                const gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 0, canvas.width/2, canvas.height/2, Math.max(canvas.width, canvas.height));
+                gradient.addColorStop(0, '#151b30'); 
+                gradient.addColorStop(0.5, '#0a0a1a'); 
+                gradient.addColorStop(1, '#000000'); 
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.scale(cam.scale, cam.scale);
+                ctx.translate(-cam.x, -cam.y);
+
+                const drawGridLines = (step, width, color) => {
+                    if ((width * cam.scale) < 0.5) return; 
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.beginPath();
+                    let startX = Math.max(0, Math.floor((cam.x - (canvas.width/2)/cam.scale) / step) * step);
+                    let endX = Math.min(SIZE, Math.ceil((cam.x + (canvas.width/2)/cam.scale) / step) * step);
+                    let startY = Math.max(0, Math.floor((cam.y - (canvas.height/2)/cam.scale) / step) * step);
+                    let endY = Math.min(SIZE, Math.ceil((cam.y + (canvas.height/2)/cam.scale) / step) * step);
+                    for (let i = startX; i <= endX; i += step) { ctx.moveTo(i, startY); ctx.lineTo(i, endY); }
+                    for (let i = startY; i <= endY; i += step) { ctx.moveTo(startX, i); ctx.lineTo(endX, i); }
+                    ctx.stroke();
+                };
+
+                drawGridLines(2430, 16, 'rgba(251, 191, 36, 0.8)');
+                drawGridLines(810, 8, 'rgba(180, 83, 9, 0.6)');
+                drawGridLines(270, 4, 'rgba(71, 85, 105, 0.6)');
+                drawGridLines(90, 2, 'rgba(51, 65, 85, 0.5)');
+                drawGridLines(30, 1, 'rgba(30, 41, 59, 0.4)');
+                drawGridLines(10, 0.5, 'rgba(15, 23, 42, 0.3)');
+
+                if (!gameOver && fL1 !== null) {
+                    ctx.strokeStyle = '#fbbf24'; 
+                    ctx.shadowColor = '#fbbf24';
+                    ctx.shadowBlur = 20 / cam.scale;
+                    
+                    let r1 = 2 - Math.floor(fL1/3), c1 = fL1 % 3;
+                    ctx.lineWidth = 10 / cam.scale;
+                    ctx.strokeRect(c1*2430, r1*2430, 2430, 2430);
+                    
+                    if (fL2 !== null) {
+                        let r2 = 2 - Math.floor(fL2/3), c2 = fL2 % 3;
+                        ctx.lineWidth = 6 / cam.scale;
+                        ctx.strokeRect(c1*2430 + c2*810, r1*2430 + r2*810, 810, 810);
+                        if (fL3 !== null) {
+                            let r3 = 2 - Math.floor(fL3/3), c3 = fL3 % 3;
+                            ctx.lineWidth = 3 / cam.scale;
+                            ctx.strokeRect(c1*2430 + c2*810 + c3*270, r1*2430 + r2*810 + r3*270, 270, 270);
+                            if (fL4 !== null) {
+                                let r4 = 2 - Math.floor(fL4/3), c4 = fL4 % 3;
+                                ctx.lineWidth = 2 / cam.scale;
+                                ctx.strokeRect(c1*2430 + c2*810 + c3*270 + c4*90, r1*2430 + r2*810 + r3*270 + r4*90, 90, 90);
+                                if (fL5 !== null) {
+                                    let r5 = 2 - Math.floor(fL5/3), c5 = fL5 % 3;
+                                    ctx.lineWidth = 1.5 / cam.scale;
+                                    ctx.strokeRect(c1*2430 + c2*810 + c3*270 + c4*90 + c5*30, r1*2430 + r2*810 + r3*270 + r4*90 + r5*30, 30, 30);
+                                }
+                            }
+                        }
+                    }
+                    ctx.shadowBlur = 0;
+                }
+
+                for (let i = 0; i < 59049; i++) {
+                    if (winL5[i] === 0) continue;
+                    let L5 = i % 9, L4 = Math.floor(i / 9) % 9, L3 = Math.floor(i / 81) % 9, L2 = Math.floor(i / 729) % 9, L1 = Math.floor(i / 6561);
+                    let r1 = 2 - Math.floor(L1/3), c1 = L1 % 3, r2 = 2 - Math.floor(L2/3), c2 = L2 % 3, r3 = 2 - Math.floor(L3/3), c3 = L3 % 3, r4 = 2 - Math.floor(L4/3), c4 = L4 % 3, r5 = 2 - Math.floor(L5/3), c5 = L5 % 3;
+                    let x = (c1*243 + c2*81 + c3*27 + c4*9 + c5*3) * 10;
+                    let y = (r1*243 + r2*81 + r3*27 + r4*9 + r5*3) * 10;
+                    ctx.fillStyle = winL5[i] === 1 ? 'rgba(56,189,248,0.3)' : 'rgba(251,113,133,0.3)';
+                    ctx.fillRect(x, y, 30, 30);
+                }
+                for (let i = 0; i < 6561; i++) {
+                    if (winL4[i] === 0) continue;
+                    let L4 = i % 9, L3 = Math.floor(i / 9) % 9, L2 = Math.floor(i / 81) % 9, L1 = Math.floor(i / 729);
+                    let r1 = 2 - Math.floor(L1/3), c1 = L1 % 3, r2 = 2 - Math.floor(L2/3), c2 = L2 % 3, r3 = 2 - Math.floor(L3/3), c3 = L3 % 3, r4 = 2 - Math.floor(L4/3), c4 = L4 % 3;
+                    let x = (c1*243 + c2*81 + c3*27 + c4*9) * 10;
+                    let y = (r1*243 + r2*81 + r3*27 + r4*9) * 10;
+                    ctx.fillStyle = winL4[i] === 1 ? 'rgba(56,189,248,0.35)' : 'rgba(251,113,133,0.35)';
+                    ctx.fillRect(x, y, 90, 90);
+                }
+                for (let i = 0; i < 729; i++) {
+                    if (winL3[i] === 0) continue;
+                    let L3 = i % 9, L2 = Math.floor(i / 9) % 9, L1 = Math.floor(i / 81);
+                    let r1 = 2 - Math.floor(L1/3), c1 = L1 % 3, r2 = 2 - Math.floor(L2/3), c2 = L2 % 3, r3 = 2 - Math.floor(L3/3), c3 = L3 % 3;
+                    let x = (c1*243 + c2*81 + c3*27) * 10;
+                    let y = (r1*243 + r2*81 + r3*27) * 10;
+                    ctx.fillStyle = winL3[i] === 1 ? 'rgba(56,189,248,0.4)' : 'rgba(251,113,133,0.4)';
+                    ctx.fillRect(x, y, 270, 270);
+                }
+                for (let i = 0; i < 81; i++) {
+                    if (winL2[i] === 0) continue;
+                    let L2 = i % 9, L1 = Math.floor(i / 9);
+                    let r1 = 2 - Math.floor(L1/3), c1 = L1 % 3, r2 = 2 - Math.floor(L2/3), c2 = L2 % 3;
+                    let x = (c1*243 + c2*81) * 10;
+                    let y = (r1*243 + r2*81) * 10;
+                    ctx.fillStyle = winL2[i] === 1 ? 'rgba(56,189,248,0.45)' : 'rgba(251,113,133,0.45)';
+                    ctx.fillRect(x, y, 810, 810);
+                }
+                for (let i = 0; i < 9; i++) {
+                    if (winL1[i] === 0) continue;
+                    let L1 = i;
+                    let r1 = 2 - Math.floor(L1/3), c1 = L1 % 3;
+                    let x = (c1*243) * 10;
+                    let y = (r1*243) * 10;
+                    ctx.fillStyle = winL1[i] === 1 ? 'rgba(56,189,248,0.5)' : 'rgba(251,113,133,0.5)';
+                    ctx.fillRect(x, y, 2430, 2430);
+                }
+
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                
+                for (let i = 0; i < 531441; i++) {
+                    if (board[i] === 0) continue;
+                    
+                    let L6 = i % 9, L5 = Math.floor(i / 9) % 9, L4 = Math.floor(i / 81) % 9, L3 = Math.floor(i / 729) % 9, L2 = Math.floor(i / 6561) % 9, L1 = Math.floor(i / 59049);
+                    
+                    let r1 = 2 - Math.floor(L1/3), c1 = L1 % 3, r2 = 2 - Math.floor(L2/3), c2 = L2 % 3, r3 = 2 - Math.floor(L3/3), c3 = L3 % 3, r4 = 2 - Math.floor(L4/3), c4 = L4 % 3, r5 = 2 - Math.floor(L5/3), c5 = L5 % 3, r6 = 2 - Math.floor(L6/3), c6 = L6 % 3;
+                    
+                    let x = (c1*243 + c2*81 + c3*27 + c4*9 + c5*3 + c6) * 10;
+                    let y = (r1*243 + r2*81 + r3*27 + r4*9 + r5*3 + r6) * 10;
+
+                    if (x < cam.x - (canvas.width/2)/cam.scale - 20 || x > cam.x + (canvas.width/2)/cam.scale + 20) continue;
+                    if (y < cam.y - (canvas.height/2)/cam.scale - 20 || y > cam.y + (canvas.height/2)/cam.scale + 20) continue;
+
+                    if (board[i] === 1) {
+                        ctx.strokeStyle = '#38bdf8';
+                        ctx.shadowColor = '#38bdf8';
+                        ctx.shadowBlur = 8 / cam.scale;
+                        ctx.lineWidth = 1.5 / cam.scale;
+                        ctx.beginPath();
+                        ctx.moveTo(x + 2, y + 2); ctx.lineTo(x + 8, y + 8);
+                        ctx.moveTo(x + 2, y + 8); ctx.lineTo(x + 8, y + 2);
+                        ctx.stroke();
+                    } else {
+                        ctx.strokeStyle = '#fb7185';
+                        ctx.shadowColor = '#fb7185';
+                        ctx.shadowBlur = 8 / cam.scale;
+                        ctx.lineWidth = 1.5 / cam.scale;
+                        ctx.beginPath();
+                        ctx.arc(x + 5, y + 5, 3.5, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                }
+                ctx.shadowBlur = 0;
+                ctx.restore();
+                requestAnimationFrame(render);
+            }
+
+            const panAmount = 400;
+            document.getElementById('panUp').onclick = () => { targetCam.y -= panAmount / targetCam.scale; clampCamera(); };
+            document.getElementById('panDown').onclick = () => { targetCam.y += panAmount / targetCam.scale; clampCamera(); };
+            document.getElementById('panLeft').onclick = () => { targetCam.x -= panAmount / targetCam.scale; clampCamera(); };
+            document.getElementById('panRight').onclick = () => { targetCam.x += panAmount / targetCam.scale; clampCamera(); };
+            document.getElementById('zoomIn').onclick = () => { targetCam.scale *= 1.8; clampCamera(); };
+            document.getElementById('zoomOut').onclick = () => { targetCam.scale /= 1.8; clampCamera(); };
+
+            document.getElementById('overlayBtn').onclick = () => {
+                board.fill(0); winL5.fill(0); winL4.fill(0); winL3.fill(0); winL2.fill(0); winL1.fill(0);
+                gameOver = false; fL1 = fL2 = fL3 = fL4 = fL5 = null; currentPlayer = 1;
+                overlay.classList.remove('show');
+                resize();
+            };
+
+            resize();
+            render();
+        })();
+    </script>
+</body>
+</html>
